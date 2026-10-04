@@ -14,3 +14,6 @@ Progetto: Jarvis, assistente vocale autonomo in Python (FastAPI + Anthropic SDK 
 ## Comandi
 - Avvio: `uvicorn jarvis.main:app --reload --port 8000`
 - Test: `python -m pytest -q`
+
+## Skill di progetto
+- In `.claude/skills/` ci sono `caveman` (risposte terse) e `ponytail` (soluzione minima che funziona). Si attivano con `/caveman` e `/ponytail`. Vedi `.claude/skills/README.md` per origine e licenze.
