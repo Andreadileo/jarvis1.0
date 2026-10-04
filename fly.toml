@@ -1,0 +1,24 @@
+# Fly.io: `fly launch --copy-config --no-deploy` la prima volta, poi `fly deploy`.
+app = "jarvis-voice"          # cambia con il nome della tua app
+primary_region = "fra"        # Francoforte: vicina all'Italia
+
+[build]
+
+[env]
+  DB_PATH = "/data/jarvis.db"
+  PUBLIC_URL = "https://jarvis-voice.fly.dev"   # deve coincidere con l'URL del webhook su Twilio
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"   # lo scheduler deve girare sempre, anche senza traffico
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+
+[mounts]
+  source = "jarvis_data"
+  destination = "/data"

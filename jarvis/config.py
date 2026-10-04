@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     twilio_from_number: str = ""
     user_phone_number: str = ""
     public_url: str = "http://localhost:8000"
+    # Solo per sviluppo locale senza ngrok: salta la verifica di X-Twilio-Signature.
+    twilio_skip_signature_check: bool = False
+    # Se vuoto, POST /debug/call è disattivato.
+    debug_token: str = ""
 
     timezone: str = "Europe/Rome"
     quiet_hours_start: int = 23
@@ -23,6 +27,8 @@ class Settings(BaseSettings):
     call_urgency_threshold: int = 8
 
     language: str = "it-IT"
+    tts_provider: str = "Amazon"
+    tts_voice: str = "Bianca-Neural"
     watch_interval_seconds: int = 120
     db_path: str = "jarvis.db"
 

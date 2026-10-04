@@ -1,4 +1,5 @@
 """Conversazione vocale con Claude, con tool locali."""
+from collections.abc import AsyncIterator
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -14,6 +15,8 @@ Prima di qualsiasi azione irreversibile chiedi conferma esplicita.
 Ora locale: {now}.
 Note salvate:
 {notes}"""
+
+FALLBACK = "Scusa, mi sono incartato. Puoi ripetere?"
 
 TOOLS = [
     {
@@ -51,23 +54,35 @@ class Conversation:
             sys += f"\nMotivo di questa chiamata: {self.reason}"
         return sys
 
-    async def reply(self, user_text: str) -> str:
+    async def stream(self, user_text: str) -> AsyncIterator[str]:
+        """Yield the reply token by token. Runs tools between turns (max 5 rounds)."""
         self.messages.append({"role": "user", "content": user_text})
-        for _ in range(5):  # limite ai giri di tool
-            resp = await self.client.messages.create(
+        for _ in range(5):
+            async with self.client.messages.stream(
                 model=self.settings.chat_model,
                 max_tokens=400,
                 system=self._system(),
                 tools=TOOLS,
                 messages=self.messages,
-            )
-            self.messages.append({"role": "assistant", "content": resp.content})
-            if resp.stop_reason != "tool_use":
-                return "".join(b.text for b in resp.content if b.type == "text").strip()
+            ) as s:
+                async for token in s.text_stream:
+                    yield token
+                final = await s.get_final_message()
+            self.messages.append({"role": "assistant", "content": final.content})
+            if final.stop_reason != "tool_use":
+                return
             results = [
                 {"type": "tool_result", "tool_use_id": b.id, "content": run_tool(b.name, b.input)}
-                for b in resp.content
+                for b in final.content
                 if b.type == "tool_use"
             ]
             self.messages.append({"role": "user", "content": results})
-        return "Scusa, mi sono incartato. Puoi ripetere?"
+        yield FALLBACK
+
+    async def reply(self, user_text: str) -> str:
+        return "".join([t async for t in self.stream(user_text)]).strip()
+
+    def interrupted(self, spoken: str) -> None:
+        """Record what Andrea actually heard before cutting in, so Claude does not assume the rest was said."""
+        if self.messages and self.messages[-1]["role"] == "user":
+            self.messages.append({"role": "assistant", "content": spoken.strip() or "..."})
