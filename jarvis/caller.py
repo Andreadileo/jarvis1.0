@@ -1,10 +1,11 @@
-"""Canali in uscita: telefonata (Twilio) e notifica."""
+"""Canali in uscita: telefonata (Twilio, opzionale), voce locale, Telegram."""
 import logging
 from urllib.parse import quote
 
 from twilio.rest import Client
 
-from . import memory
+from . import memory, speech
+from .channels import telegram
 from .config import get_settings
 
 log = logging.getLogger("jarvis.caller")
@@ -26,5 +27,26 @@ def place_call(reason: str) -> str | None:
 
 
 def notify(text: str) -> None:
-    # TODO: sostituire con Telegram / push. Per ora solo log.
+    """Telegram: testo sempre, nota vocale se c'è un sintetizzatore e ffmpeg."""
     log.info("NOTIFICA: %s", text)
+    if not telegram.configured():
+        return
+    telegram.send_text(text)
+    if get_settings().telegram_voice_notes and speech.can_make_voice_note():
+        wav = speech.synthesize(text)
+        if wav is None:
+            return
+        try:
+            ogg = speech.to_ogg(wav)
+            if ogg is not None:
+                telegram.send_voice(ogg)
+                ogg.unlink(missing_ok=True)
+        finally:
+            wav.unlink(missing_ok=True)
+
+
+def speak(text: str) -> None:
+    """Voce dalle casse del PC; se non riesce, ripiega su Telegram."""
+    log.info("VOCE: %s", text)
+    if not speech.speak(text):
+        notify(text)

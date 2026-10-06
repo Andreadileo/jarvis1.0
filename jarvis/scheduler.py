@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-from . import caller, memory
+from . import caller, memory, presence
 from .config import get_settings
 from .policy import PolicyConfig, PolicyInput, decide
 from .triage import triage
@@ -35,6 +35,7 @@ def _start_of_local_day(now: datetime, tz: str) -> str:
 def tick() -> None:
     cfg = _policy_config()
     now = datetime.now(timezone.utc)
+    who = presence.detect(get_settings().presence_idle_seconds)
     for watcher in WATCHERS:
         try:
             events = watcher()
@@ -46,13 +47,17 @@ def tick() -> None:
                 continue
             t = triage(ev)
             calls_today = memory.outbound_calls_since(_start_of_local_day(now, cfg.tz))
-            action = decide(PolicyInput(t.urgency, now, calls_today), cfg)
+            action = decide(PolicyInput(t.urgency, now, calls_today, at_pc=who.at_pc, busy=who.busy), cfg)
             memory.save_event(ev, t.urgency, action)
-            log.info("%s -> urgency=%s action=%s", ev.id, t.urgency, action)
-            if action == "call":
-                caller.place_call(t.summary or ev.title)
+            log.info("%s -> urgency=%s action=%s (%s)", ev.id, t.urgency, action, who.reason)
+            text = t.summary or ev.title
+            if action == "speak":
+                caller.speak(text)
+            elif action == "call":
+                if caller.place_call(text) is None:   # Twilio assente: ripiega su Telegram
+                    caller.notify(text)
             elif action == "notify":
-                caller.notify(t.summary or ev.title)
+                caller.notify(text)
 
 
 def start() -> AsyncIOScheduler:

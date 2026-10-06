@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     user_phone_number: str = ""
     public_url: str = "http://localhost:8000"
 
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    telegram_voice_notes: bool = True   # allega una nota vocale ai messaggi (serve ffmpeg)
+
+    piper_path: str = ""                # binario piper.exe; vuoto = usa la voce di Windows
+    piper_model: str = ""               # file .onnx della voce italiana
+    presence_idle_seconds: int = 120    # oltre questa inattività sei "lontano dal PC"
+
     timezone: str = "Europe/Rome"
     quiet_hours_start: int = 23
     quiet_hours_end: int = 8
